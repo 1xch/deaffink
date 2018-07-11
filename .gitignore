@@ -27,6 +27,7 @@ Godeps/*
 !Godeps/Godeps.json
 
 deaffink
+configuration.go
 _back
 *.out
 *.old.*

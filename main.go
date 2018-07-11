@@ -136,11 +136,20 @@ func (c *configuration) Configured() bool {
 }
 
 var builtIns = []Config{
-	config{0, example},
+	config{0, builtinConfigurationExample},
 }
 
-func example({{.Letter}} {{.CName}}) error {
+func builtinConfigurationExample({{.Letter}} {{.CName}}) error {
 	return nil
+}
+
+func ExternalConfigurationExample(anything ...interface{}) Config {
+	return NewConfig(
+		100,
+		func({{.Letter}} {{.CName}}) error {
+			return nil
+		},
+	)
 }
 `
 )
