@@ -19,13 +19,14 @@ import (
 
 type options struct {
 	PName, CName, Letter string
-	IsPointer            bool
+	IsPointer, Document  bool
 }
 
 func mkFlags(o *options) {
 	flag.StringVar(&o.PName, "package", o.PName, "Set the package name.")
 	flag.StringVar(&o.CName, "configurable", o.CName, "Set the configurable item name.")
 	flag.BoolVar(&o.IsPointer, "isPointer", o.IsPointer, "Configurable is a pointer.")
+	flag.BoolVar(&o.Document, "document", o.Document, "Generate documentation strings on public functions, variables, and structs.")
 }
 
 var (
@@ -35,9 +36,38 @@ var (
 	B    *bytes.Buffer
 	tErr error
 	t    string = `package {{.PName}}
+{{if .Document}}/*
+This file provides configuration functionality for {{.CName}} of {{.PName}}.
 
+ConfigFn: A function taking {{.CName}} and returning an error.
+
+Config: An interface that provides order & ConfigFn functionality.
+
+Configuration: An interface that aggregates multiple Config.
+
+An example use:
+	package {{.PName}}
+
+	type {{.CName}} struct {
+		Configuration
+	}
+
+	func New(conf ...Config) ({{.CName}}, error) {
+		{{.Letter}} := (instance of {{.CName}})
+		c := newConfiguration({{.Letter}}, conf...)
+		{{.Letter}}.Configuration = c
+		err := {{.Letter}}.Configure()
+		if err != nil {
+			return nil, err
+		}
+		return {{.Letter}}, nil
+	}
+*/{{end}}
+
+{{if .Document}}// A function taking {{.CName}} and returning an error.{{end}}
 type ConfigFn func({{.CName}}) error
 
+{{if .Document}}// An interface providing Order & Configure functions.{{end}}
 type Config interface {
 	Order() int
 	Configure({{.CName}}) error
@@ -48,36 +78,44 @@ type config struct {
 	fn    ConfigFn
 }
 
+{{if .Document}}// Returns a default Config with order of 50 and the provided ConfigFn.{{end}}
 func DefaultConfig(fn ConfigFn) Config {
 	return config{50, fn}
 }
 
+{{if .Document}}// Returns a Config with the provided order and ConfigFn.{{end}}
 func NewConfig(order int, fn ConfigFn) Config {
 	return config{order, fn}
 }
 
+{{if .Document}}// Returns an integer used for ordering.{{end}}
 func (c config) Order() int {
 	return c.order
 }
 
+{{if .Document}}// Provided a {{.CName}} runs any defined functionality, returning any error.{{end}}
 func (c config) Configure({{.Letter}} {{.CName}}) error {
 	return c.fn({{.Letter}})
 }
 
 type configList []Config
 
+{{if .Document}}// Len for sort.Sort.{{end}}
 func (c configList) Len() int {
 	return len(c)
 }
 
+{{if .Document}}// Swap for sort.Sort.{{end}}
 func (c configList) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
 }
 
+{{if .Document}}// Less for sort.Sort.{{end}}
 func (c configList) Less(i, j int) bool {
 	return c[i].Order() < c[j].Order()
 }
 
+{{if .Document}}// An interface providing facility for multiple configuration options.{{end}}
 type Configuration interface {
 	Add(...Config)
 	AddFn(...ConfigFn)
@@ -100,14 +138,9 @@ func newConfiguration({{.Letter}} {{.CName}}, conf ...Config) *configuration {
 	return c
 }
 
+{{if .Document}}// Adds any number of Config to the Configuration.{{end}}
 func (c *configuration) Add(conf ...Config) {
 	c.list = append(c.list, conf...)
-}
-
-func (c *configuration) AddFn(fns ...ConfigFn) {
-	for _, fn := range fns {
-		c.list = append(c.list, DefaultConfig(fn))
-	}
 }
 
 func configure({{.Letter}} {{.CName}}, conf ...Config) error {
@@ -120,6 +153,7 @@ func configure({{.Letter}} {{.CName}}, conf ...Config) error {
 	return nil
 }
 
+{{if .Document}}// Runs all configuration for this Configuration, return any encountered error immediately.{{end}}
 func (c *configuration) Configure() error {
 	sort.Sort(c.list)
 
@@ -131,6 +165,7 @@ func (c *configuration) Configure() error {
 	return err
 }
 
+{{if .Document}}// Returns a boolean indicating if Configuration has run Configure.{{end}}
 func (c *configuration) Configured() bool {
 	return c.configured
 }
@@ -143,6 +178,7 @@ func builtinConfigurationExample({{.Letter}} {{.CName}}) error {
 	return nil
 }
 
+{{if .Document}}// An externally available function to provide to a new instance of {{.CName}}.{{end}}
 func ExternalConfigurationExample(anything ...interface{}) Config {
 	return NewConfig(
 		100,
@@ -157,7 +193,7 @@ func ExternalConfigurationExample(anything ...interface{}) Config {
 func init() {
 	wd, _ := os.Getwd()
 	path = filepath.Join(wd, "configuration.go")
-	O = &options{"main", "Item", "i", false}
+	O = &options{"main", "Item", "i", false, false}
 	mkFlags(O)
 	T, tErr = template.New("deaffink").Parse(t)
 	B = new(bytes.Buffer)
